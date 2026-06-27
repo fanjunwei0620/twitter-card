@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Card Generator | X 名片生成器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 5px rgba(255,255,255,0.1)' },
+                            '50%': { boxShadow: '0 0 20px rgba(255,255,255,0.2)' },
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+        /* 卡片背景纹理 */
+        .card-texture {
+            background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* 渐变边框 */
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(145deg, #1a1a1a, #111111);
+            border-radius: 16px;
+        }
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 17px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04), rgba(255,255,255,0.08));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 头像加载过渡 */
+        .avatar-placeholder {
+            background: linear-gradient(135deg, #1d1d1d, #2a2a2a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #666;
+        }
+    </style>
+</head>
+<body class="bg-[#050505] min-h-screen text-white font-sans antialiased selection:bg-white/20">
+
+    <!-- 背景装饰 -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-white/[0.02] to-transparent rounded-full blur-3xl"></div>
+    </div>
+
+    <!-- 主体 -->
+    <main class="relative z-10 max-w-xl mx-auto px-4 py-8 sm:py-12 md:py-16">
+
+        <!-- ===== 头部 ===== -->
+        <header class="text-center mb-10 animate-fade-in">
+            <!-- X Logo -->
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white text-black font-bold text-2xl mb-5 shadow-lg shadow-white/5">
+                𝕏
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+                X Card Generator
+            </h1>
+            <p class="text-gray-500 text-sm sm:text-base max-w-xs mx-auto leading-relaxed">
+                输入任意 X（Twitter）主页链接<br>一键生成专属名片 &amp; 二维码
+            </p>
+        </header>
+
+        <!-- ===== 输入区域 ===== -->
+        <section class="animate-slide-up mb-8">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <div class="flex-1 relative">
+                    <!-- URL 图标 -->
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm select-none">🔗</span>
+                    <input
+                        id="urlInput"
+                        type="text"
+                        inputmode="url"
+                        placeholder="https://x.com/username"
+                        autocomplete="off"
+                        class="w-full pl-10 pr-4 py-3.5 rounded-xl bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-600 transition-all duration-200 text-sm"
+                    >
+                </div>
+                <button
+                    id="generateBtn"
+                    class="shrink-0 px-6 py-3.5 bg-white hover:bg-gray-200 active:bg-gray-300 text-black font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm tracking-wide"
+                >
+                    生成名片
+                </button>
+            </div>
+            <!-- 提示文字 -->
+            <p class="text-gray-600 text-xs mt-2 ml-1">
+                支持格式: x.com/username / @username / twitter.com/username
+            </p>
+            <!-- 错误提示 -->
+            <div id="errorMsg" class="hidden mt-3 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm"></div>
+        </section>
+
+        <!-- ===== 结果区域（初始隐藏） ===== -->
+        <section id="resultSection" class="hidden">
+
+            <!-- 编辑区域 -->
+            <div class="animate-fade-in mb-6 space-y-3">
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-1.5 ml-1">显示名称</label>
+                        <input
+                            id="displayNameInput"
+                            type="text"
+                            placeholder="显示名称"
+                            class="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 transition-all duration-200 text-sm"
+                        >
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-500 mb-1.5 ml-1">个人简介</label>
+                        <input
+                            id="bioInput"
+                            type="text"
+                            placeholder="简介（选填）"
+                            maxlength="120"
+                            class="w-full px-4 py-2.5 rounded-lg bg-gray-900 border border-gray-800 text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 transition-all duration-200 text-sm"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 名片卡片 ===== -->
+            <div class="animate-slide-up">
+                <p class="text-xs text-gray-600 mb-3 ml-1">📇 名片预览</p>
+
+                <!-- 卡片主体 -->
+                <div
+                    id="card"
+                    class="gradient-border card-texture relative overflow-hidden p-5 sm:p-6 flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6"
+                >
+                    <!-- 卡片内容层级 -->
+                    <div class="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 w-full">
+
+                        <!-- 头像 -->
+                        <div class="shrink-0">
+                            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-lg">
+                                <img
+                                    id="avatarImg"
+                                    src=""
+                                    alt="Avatar"
+                                    class="w-full h-full object-cover"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                >
+                                <div
+                                    id="avatarFallback"
+                                    class="avatar-placeholder w-full h-full text-3xl sm:text-4xl"
+                                    style="display:none;"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- 信息区域 -->
+                        <div class="flex-1 text-center sm:text-left min-w-0">
+                            <!-- 显示名称 -->
+                            <h2 id="cardName" class="text-xl sm:text-2xl font-bold text-white truncate">
+                                @username
+                            </h2>
+                            <!-- 用户名 -->
+                            <p id="cardHandle" class="text-gray-500 text-sm mt-0.5 mb-3">
+                                @username
+                            </p>
+                            <!-- 简介 -->
+                            <p
+                                id="cardBio"
+                                class="text-gray-400 text-sm leading-relaxed line-clamp-3"
+                            ></p>
+
+                            <!-- X 标记 -->
+                            <div class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-gray-400">
+                                <span class="font-bold text-white">𝕏</span>
+                                <span>X Card</span>
+                            </div>
+                        </div>
+
+                        <!-- 二维码区域 -->
+                        <div class="shrink-0 flex flex-col items-center gap-2">
+                            <div class="bg-white p-2 rounded-xl shadow-lg">
+                                <img
+                                    id="qrImg"
+                                    src=""
+                                    alt="QR Code"
+                                    class="w-24 h-24 sm:w-28 sm:h-28"
+                                >
+                            </div>
+                            <span class="text-[10px] text-gray-600 tracking-wide">扫码访问</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 操作按钮 ===== -->
+            <div class="animate-fade-in flex flex-wrap gap-3 mt-6">
+                <button
+                    id="downloadQrBtn"
+                    class="flex-1 min-w-[120px] py-3 px-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 text-white rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                    <span>📥</span> 下载二维码
+                </button>
+                <button
+                    id="downloadCardBtn"
+                    class="flex-1 min-w-[120px] py-3 px-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 text-white rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                    <span>🖼️</span> 下载名片
+                </button>
+                <button
+                    id="copyLinkBtn"
+                    class="flex-1 min-w-[120px] py-3 px-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 text-white rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                    <span>📋</span> 复制链接
+                </button>
+            </div>
+
+            <!-- 成功提示 Toast -->
+            <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 bg-green-500/90 text-white rounded-xl text-sm font-medium shadow-2xl backdrop-blur-sm z-50 transition-all duration-300">
+                ✅ 已复制到剪贴板
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="relative z-10 text-center pb-8 text-gray-700 text-xs">
+        <p>Made with ❤️ · Vibe Coding</p>
+    </footer>
+
+    <script>
+        // ==================== DOM 元素 ====================
+        const urlInput = document.getElementById('urlInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        const resultSection = document.getElementById('resultSection');
+
+        const displayNameInput = document.getElementById('displayNameInput');
+        const bioInput = document.getElementById('bioInput');
+
+        const card = document.getElementById('card');
+        const cardName = document.getElementById('cardName');
+        const cardHandle = document.getElementById('cardHandle');
+        const cardBio = document.getElementById('cardBio');
+        const avatarImg = document.getElementById('avatarImg');
+        const avatarFallback = document.getElementById('avatarFallback');
+        const qrImg = document.getElementById('qrImg');
+
+        const toast = document.getElementById('toast');
+
+        // 当前生成的 URL 和用户名
+        let currentProfileUrl = '';
+        let currentUsername = '';
+        let html2canvasLoading = false; // 防止重复加载
+
+        // ==================== 工具函数 ====================
+
+        /** 从各种格式的输入中提取用户名 */
+        function extractUsername(input) {
+            const trimmed = input.trim();
+
+            // 空输入
+            if (!trimmed) return null;
+
+            // 已经是纯用户名（以@开头）
+            if (/^@?[a-zA-Z0-9_]{1,15}$/.test(trimmed)) {
+                return trimmed.replace('@', '');
+            }
+
+            // 从 URL 提取
+            try {
+                // 兼容没有协议的 URL
+                const urlStr = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+                const url = new URL(urlStr);
+
+                // 必须是 x.com 或 twitter.com 域名
+                const hostname = url.hostname.replace('www.', '');
+                if (!['x.com', 'twitter.com'].includes(hostname)) {
+                    return null;
+                }
+
+                // 路径格式: /username 或 /username/...
+                const parts = url.pathname.split('/').filter(Boolean);
+                if (parts.length >= 1) {
+                    const username = parts[0];
+                    // 验证用户名格式 (1-15个字符，字母数字下划线)
+                    if (/^[a-zA-Z0-9_]{1,15}$/.test(username)) {
+                        return username;
+                    }
+                }
+                return null;
+            } catch {
+                return null;
+            }
+        }
+
+        /** 显示 Toast 提示 */
+        function showToast(message, duration = 2000) {
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+
+            clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 10px)';
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, duration);
+        }
+
+        /** 显示错误 */
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.classList.remove('hidden');
+            errorMsg.classList.add('animate-fade-in');
+        }
+
+        /** 隐藏错误 */
+        function hideError() {
+            errorMsg.classList.add('hidden');
+        }
+
+        /** 生成头像回退（首字母） */
+        function getAvatarFallback(username) {
+            return username.charAt(0).toUpperCase();
+        }
+
+        // ==================== 核心逻辑 ====================
+
+        /** 生成名片 */
+        function generate() {
+            const input = urlInput.value.trim();
+            hideError();
+
+            if (!input) {
+                showError('请输入 X（Twitter）主页链接');
+                urlInput.focus();
+                return;
+            }
+
+            const username = extractUsername(input);
+
+            if (!username) {
+                showError('无法识别该链接，请检查后重试。支持格式: x.com/username / @username / twitter.com/username');
+                return;
+            }
+
+            // 存储状态
+            currentProfileUrl = `https://x.com/${username}`;
+            currentUsername = username;
+
+            // 更新编辑区
+            displayNameInput.value = username;
+            bioInput.value = '';
+
+            // 更新名片
+            updateCard(username);
+
+            // 显示结果区
+            resultSection.classList.remove('hidden');
+            resultSection.querySelectorAll('.animate-fade-in, .animate-slide-up').forEach(el => {
+                el.style.animation = 'none';
+                el.offsetHeight; // reflow
+                el.style.animation = '';
+            });
+
+            // 滚动到名片
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        /** 更新名片内容 */
+        function updateCard(username) {
+            const displayName = displayNameInput.value.trim() || username;
+
+            // 设置头像
+            const avatarUrl = `https://unavatar.io/twitter/${username}`;
+            avatarImg.src = avatarUrl;
+            avatarImg.style.display = 'block';
+            avatarFallback.style.display = 'none';
+            avatarFallback.textContent = getAvatarFallback(username);
+
+            // 设置文字
+            cardName.textContent = displayName;
+            cardHandle.textContent = `@${username}`;
+            cardBio.textContent = bioInput.value.trim() || '';
+
+            // 生成二维码（使用 goQR API，标准黑白二维码）
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentProfileUrl)}&bgcolor=fff&color=000&margin=10`;
+            qrImg.src = qrApiUrl;
+        }
+
+        // ==================== 事件监听 ====================
+
+        // 生成按钮
+        generateBtn.addEventListener('click', generate);
+
+        // 回车键触发
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') generate();
+        });
+
+        // 编辑区实时更新名片
+        displayNameInput.addEventListener('input', () => {
+            if (currentUsername) updateCard(currentUsername);
+        });
+
+        bioInput.addEventListener('input', () => {
+            if (currentUsername) updateCard(currentUsername);
+        });
+
+        // 下载二维码
+        document.getElementById('downloadQrBtn').addEventListener('click', () => {
+            if (!currentProfileUrl) return;
+
+            const qrDownloadUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(currentProfileUrl)}&bgcolor=fff&color=000&margin=15`;
+
+            // 使用 fetch + blob 方式下载（避免跨域 download 属性失效）
+            fetch(qrDownloadUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `x-qr-${currentUsername || 'card'}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('✅ 二维码已下载');
+                })
+                .catch(() => {
+                    // 降级：直接打开
+                    window.open(qrDownloadUrl, '_blank');
+                });
+        });
+
+        // 下载名片
+        document.getElementById('downloadCardBtn').addEventListener('click', () => {
+            if (!currentProfileUrl) return;
+
+            // 动态加载 html2canvas
+            if (typeof html2canvas === 'undefined') {
+                if (html2canvasLoading) return; // 防止重复加载
+                html2canvasLoading = true;
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                script.onload = () => {
+                    html2canvasLoading = false;
+                    captureCard();
+                };
+                script.onerror = () => {
+                    html2canvasLoading = false;
+                    showToast('⚠️ 加载失败，请重试');
+                };
+                document.head.appendChild(script);
+            } else {
+                captureCard();
+            }
+
+            function captureCard() {
+                showToast('🎨 正在生成名片图片...', 1500);
+
+                html2canvas(card, {
+                    backgroundColor: '#0a0a0a',
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `x-card-${currentUsername || 'user'}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    showToast('✅ 名片已下载');
+                }).catch(() => {
+                    showToast('⚠️ 下载失败，请尝试截图保存');
+                });
+            }
+        });
+
+        // 复制链接
+        document.getElementById('copyLinkBtn').addEventListener('click', () => {
+            if (!currentProfileUrl) return;
+
+            navigator.clipboard.writeText(currentProfileUrl).then(() => {
+                showToast('✅ 链接已复制到剪贴板');
+            }).catch(() => {
+                showToast('⚠️ 复制失败，请手动复制');
+            });
+        });
+
+        // ==================== 初始演示 ====================
+        // 页面加载后，如果 URL 有 hash 则自动生成
+        // 例如: index.html#elonmusk
+        window.addEventListener('DOMContentLoaded', () => {
+            // 支持通过 URL hash 快速生成名片
+            // const hash = window.location.hash.slice(1);
+            // if (hash) {
+            //     urlInput.value = hash;
+            //     generate();
+            // }
+        });
+    </script>
+
+</body>
+</html>

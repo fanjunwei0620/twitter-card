@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的第一个网页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center transition-colors duration-300">
+
+    <div class="w-full max-w-md mx-4">
+        <!-- 卡片 -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700 transition-all duration-300">
+
+            <!-- 标题 -->
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">
+                我的第一个网页
+            </h1>
+
+            <!-- 输入区域 -->
+            <div class="space-y-4">
+                <!-- 输入框 -->
+                <div>
+                    <label for="nameInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        请输入你的名字
+                    </label>
+                    <input
+                        id="nameInput"
+                        type="text"
+                        placeholder="输入名字..."
+                        autocomplete="off"
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    >
+                </div>
+
+                <!-- 按钮 -->
+                <button
+                    id="greetBtn"
+                    class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200"
+                >
+                    点击问候
+                </button>
+            </div>
+
+            <!-- 问候语显示区域 -->
+            <div
+                id="greeting"
+                class="mt-6 text-center text-lg font-medium text-gray-700 dark:text-gray-300 min-h-[2rem] transition-all duration-300"
+            ></div>
+        </div>
+
+        <!-- 页脚 -->
+        <p class="text-center text-sm text-gray-400 dark:text-gray-500 mt-6">
+            🚀 Vibe Coding 世界
+        </p>
+    </div>
+
+    <script>
+        const nameInput = document.getElementById('nameInput');
+        const greetBtn = document.getElementById('greetBtn');
+        const greeting = document.getElementById('greeting');
+
+        function showGreeting() {
+            const name = nameInput.value.trim();
+
+            if (name === '') {
+                greeting.textContent = '⚠️ 请先输入你的名字！';
+                greeting.className = 'mt-6 text-center text-lg font-medium text-yellow-600 dark:text-yellow-400 animate-pulse';
+                nameInput.focus();
+                return;
+            }
+
+            greeting.textContent = `你好，${name}！欢迎来到 Vibe Coding 世界 🎉`;
+            greeting.className = 'mt-6 text-center text-lg font-medium text-green-600 dark:text-green-400';
+        }
+
+        // 点击按钮触发
+        greetBtn.addEventListener('click', showGreeting);
+
+        // 按 Enter 键触发
+        nameInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                showGreeting();
+            }
+        });
+    </script>
+
+</body>
+</html>
